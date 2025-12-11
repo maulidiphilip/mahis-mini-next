@@ -41,6 +41,7 @@ npm install
 npx prisma generate
 npx prisma db push
 npx prisma db seed
+npx prisma studio
 npm run dev
 
 Open http://localhost:3000
