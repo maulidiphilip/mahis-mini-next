@@ -33,8 +33,26 @@ model Visit {
   fundalHeight   Float?
   fetalHeartRate Int?
   notes          String?
-
-  patient        Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  recordedBy     String 
+  patient        Patient   @relation(fields: [patientId], references: [id])
 
   @@map("visits")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role     @default(VIEWER)
+  createdAt DateTime @default(now())
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  CLINICIAN
+  DATA_CLERK
+  VIEWER
 }

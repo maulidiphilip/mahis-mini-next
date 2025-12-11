@@ -1,15 +1,20 @@
 import { PrismaClient, Prisma } from "../app/generated/prisma/client";
-import { PrismaPg } from '@prisma/adapter-pg'
-import 'dotenv/config'
+import { PrismaPg } from "@prisma/adapter-pg";
+import "dotenv/config";
+import bcrypt from "bcryptjs";
 
+// Database adapter
 const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
-})
-
-const prisma = new PrismaClient({
-  adapter,
+  connectionString: process.env.DATABASE_URL!,
 });
 
+// Prisma instance
+const prisma = new PrismaClient({ adapter });
+
+// Typed visit input (removes any warnings)
+type VisitInput = Prisma.VisitCreateWithoutPatientInput;
+
+// Seed Data
 const patientData: Prisma.PatientCreateInput[] = [
   {
     nationalId: "MW199805120001",
@@ -28,6 +33,7 @@ const patientData: Prisma.PatientCreateInput[] = [
           fundalHeight: 28,
           fetalHeartRate: 142,
           notes: "Normal progress, taking iron supplements",
+          recordedBy: "will-be-set-later",
         },
         {
           visitDate: new Date("2025-09-15"),
@@ -35,6 +41,7 @@ const patientData: Prisma.PatientCreateInput[] = [
           bloodPressure: "120/78",
           fundalHeight: 31,
           fetalHeartRate: 140,
+          recordedBy: "will-be-set-later",
         },
         {
           visitDate: new Date("2025-10-20"),
@@ -43,6 +50,7 @@ const patientData: Prisma.PatientCreateInput[] = [
           fundalHeight: 34,
           fetalHeartRate: 138,
           notes: "Good fetal movement reported",
+          recordedBy: "will-be-set-later",
         },
       ],
     },
@@ -64,6 +72,7 @@ const patientData: Prisma.PatientCreateInput[] = [
           fundalHeight: 16,
           fetalHeartRate: 150,
           notes: "First ANC visit – HIV test done (negative)",
+          recordedBy: "will-be-set-later",
         },
         {
           visitDate: new Date("2025-11-12"),
@@ -71,6 +80,7 @@ const patientData: Prisma.PatientCreateInput[] = [
           bloodPressure: "112/72",
           fundalHeight: 20,
           fetalHeartRate: 148,
+          recordedBy: "will-be-set-later",
         },
       ],
     },
@@ -92,6 +102,7 @@ const patientData: Prisma.PatientCreateInput[] = [
           fundalHeight: 36,
           fetalHeartRate: 135,
           notes: "Head engaged – prepare for delivery soon",
+          recordedBy: "will-be-set-later",
         },
       ],
     },
@@ -112,7 +123,8 @@ const patientData: Prisma.PatientCreateInput[] = [
           bloodPressure: "145/95",
           fundalHeight: 30,
           fetalHeartRate: 140,
-          notes: "High BP – suspected pre-eclampsia, referred to district hospital urgently",
+          notes: "High BP – suspected pre-eclampsia, referred urgently",
+          recordedBy: "will-be-set-later",
         },
       ],
     },
@@ -133,28 +145,81 @@ const patientData: Prisma.PatientCreateInput[] = [
           bloodPressure: "120/78",
           fundalHeight: 32,
           fetalHeartRate: 145,
-          notes: "Twins confirmed on ultrasound – high-risk pregnancy",
+          notes: "Twins confirmed – high-risk pregnancy",
+          recordedBy: "will-be-set-later",
         },
       ],
     },
   },
 ];
 
+// MAIN SEED FUNCTION
 export async function main() {
-  console.log("Seeding MaHIS Mini with realistic Malawian maternal health data...");
+  console.log("Seeding MaHIS Mini v2...");
 
-  // Optional: clear old data
   await prisma.visit.deleteMany();
   await prisma.patient.deleteMany();
+  await prisma.user.deleteMany();
 
+  // Create users
+  const admin = await prisma.user.create({
+    data: {
+      email: "admin@mahis.mw",
+      password: bcrypt.hashSync("admin123", 10),
+      name: "System Administrator",
+      role: "ADMIN",
+    },
+  });
+
+  const clinician = await prisma.user.create({
+    data: {
+      email: "clinician@mahis.mw",
+      password: bcrypt.hashSync("clinician123", 10),
+      name: "Dr. Mphatso Chikaonda",
+      role: "CLINICIAN",
+    },
+  });
+
+  const clerk = await prisma.user.create({
+    data: {
+      email: "clerk@mahis.mw",
+      password: bcrypt.hashSync("clerk123", 10),
+      name: "Grace Phiri",
+      role: "DATA_CLERK",
+    },
+  });
+
+  console.log("Users created.");
+
+  // Create patients + visits
   for (const p of patientData) {
-    await prisma.patient.create({ data: p });
+    const visitsToCreate: VisitInput[] = Array.isArray(p.visits?.create)
+      ? p.visits.create.map((v) => ({
+          ...v,
+          recordedBy: clinician.id,
+        }))
+      : [];
+
+    await prisma.patient.create({
+      data: {
+        nationalId: p.nationalId,
+        firstName: p.firstName,
+        lastName: p.lastName,
+        phone: p.phone,
+        dateOfBirth: p.dateOfBirth,
+        gender: p.gender,
+        visits: {
+          create: visitsToCreate,
+        },
+      },
+    });
   }
 
-  console.log("Seeding completed successfully!");
-  console.log("Try searching: 0999, Chisomo, Tamanda, Linda, or 145");
+  console.log("Seeded 5 patients with clinician visits.");
+  console.log("MaHIS Mini v2 is ready.");
 }
 
+// EXECUTE
 main()
   .catch((e) => {
     console.error("Seeding failed:", e);

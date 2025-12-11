@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import { AuthProvider } from "@/components/auth/AuthContext";
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -31,9 +32,11 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <body className={`${inter.className} bg-white text-gray-900 antialiased`}>
-        <Header />
+        <AuthProvider>
+          <Header />
         <main className="min-h-screen pt-20 pb-10">{children}</main>
         <Footer />
+        </AuthProvider>
       </body>
     </html>
   );
