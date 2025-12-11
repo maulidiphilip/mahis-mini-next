@@ -1,14 +1,18 @@
+// app/patient/[id]/page.tsx
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import prisma from '@/lib/prisma'
 import FhirExportButton from '@/components/fhir/FhirExportButton'
+import RequireRole from '@/components/auth/RequireRole'
+import NewVisitForm from '@/components/patient/NewVisitForm'
 
 export default async function PatientPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
-  const { id } = await params 
+  const { id } = await params
+
   const patient = await prisma.patient.findUnique({
     where: { id },
     include: {
@@ -29,7 +33,7 @@ export default async function PatientPage({
       {/* Header */}
       <div className="bg-teal-700 text-white shadow-xl">
         <div className="max-w-5xl mx-auto px-6 py-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
             <div>
               <h1 className="text-3xl sm:text-4xl font-bold">
                 {patient.firstName} {patient.lastName}
@@ -40,7 +44,7 @@ export default async function PatientPage({
             </div>
             <Link
               href="/"
-              className="bg-white/20 hover:bg-white/30 px-8 py-4 rounded-2xl font-medium transition"
+              className="bg-white/20 hover:bg-white/30 px-8 py-4 rounded-2xl font-medium transition self-start sm:self-center"
             >
               ← Back to Search
             </Link>
@@ -49,7 +53,7 @@ export default async function PatientPage({
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-10">
-        {/* Patient Info + FHIR Button */}
+        {/* Patient Info + FHIR Export */}
         <div className="bg-white rounded-3xl shadow-2xl p-8 mb-10 border border-gray-200">
           <div className="grid md:grid-cols-2 gap-10 items-center">
             <div>
@@ -60,13 +64,24 @@ export default async function PatientPage({
                 <p><span className="font-medium text-gray-800">Total ANC Visits:</span> <span className="text-3xl font-bold text-teal-600">{patient.visits.length}</span></p>
               </div>
             </div>
+
             <div className="flex justify-center md:justify-end">
-              <FhirExportButton patient={patient} />
+              {/* ADMIN & CLINICIAN can export */}
+              <RequireRole allowedRoles={['ADMIN', 'CLINICIAN']}>
+                <FhirExportButton patient={patient} />
+              </RequireRole>
             </div>
           </div>
         </div>
 
-        {/* ANC Timeline */}
+        {/* ONLY CLINICIANS CAN RECORD NEW VISITS */}
+        <RequireRole allowedRoles={['CLINICIAN']}>
+          <div className="mb-12">
+            <NewVisitForm patientId={patient.id} />
+          </div>
+        </RequireRole>
+
+        {/* ANC Timeline — Everyone can see */}
         <div className="bg-white rounded-3xl shadow-2xl p-8 border border-gray-200">
           <h2 className="text-2xl font-bold text-teal-800 mb-8">ANC Visit History</h2>
 
@@ -87,7 +102,9 @@ export default async function PatientPage({
 
                   <div className="flex-1 bg-gradient-to-r from-teal-50 to-white rounded-2xl p-6 border border-teal-200 shadow-md">
                     <p className="text-xl font-bold text-teal-900">
-                      {new Date(visit.visitDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      {new Date(visit.visitDate).toLocaleDateString('en-GB', { 
+                        day: 'numeric', month: 'long', year: 'numeric' 
+                      })}
                     </p>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-6">
                       <div className="text-center">
